@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  compliance-framework:
+    image: some-minimal-image:latest
+    container_name: compliance-framework
+    environment:
+      - DATABASE_URL=sqlite:///path/to/database.db
+    volumes:
+      - ./data:/path/to/database
+    ports:
+      - "8000:8000"
+    command: ["your-start-command"]
