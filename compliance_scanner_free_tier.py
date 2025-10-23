@@ -69,10 +69,36 @@ class ComplianceScannerDB:
         cur.execute("SELECT * FROM violations WHERE scan_id=?", (scan_id,))
         return cur.fetchall()
 
+    def close_connection(self):
+        """Close the database connection."""
+        if self.conn:
+            self.conn.close()
+
 # Example usage:
 if __name__ == "__main__":
     db = ComplianceScannerDB("compliance_scanner.db")
-    scan_id = db.insert_scan("Scan completed with no violations.")
-    db.insert_violation(scan_id, "Minor configuration issue detected.")
+
+    # Scenario 1: Scan with no violations
+    print("--- Running Scan 1: No Violations ---")
+    scan_id_1 = db.insert_scan("Scan completed with no violations.")
+    print(f"Scan 1 registered with ID: {scan_id_1}")
+    print("Historical Data after Scan 1:")
     print(db.get_historical_data())
-    print(db.get_violations(scan_id))
+    print("Violations for Scan 1 (should be empty):")
+    print(db.get_violations(scan_id_1))
+    print("-" * 20)
+
+    # Scenario 2: Scan with a violation
+    print("\n--- Running Scan 2: Violation Detected ---")
+    scan_id_2 = db.insert_scan("Scan completed with violations.")
+    db.insert_violation(scan_id_2, "Minor configuration issue detected.")
+    print(f"Scan 2 registered with ID: {scan_id_2}")
+    print("Historical Data after Scan 2:")
+    print(db.get_historical_data())
+    print(f"Violations for Scan 2 (should show one violation):")
+    print(db.get_violations(scan_id_2))
+    print("-" * 20)
+
+    # Close the database connection
+    db.close_connection()
+    print("\nDatabase connection closed.")
