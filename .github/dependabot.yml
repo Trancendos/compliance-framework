@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "2023-11-02T00:00:00Z"
+    open-pull-requests-limit: 5
+    commit-message: "fix: update dependency"
+    auto-merge: true
+    ignore:
+      - dependency-name: "*"
+        versions: ["1.x.x"]
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "2023-11-09T00:00:00Z"
+    open-pull-requests-limit: 5
+    commit-message: "fix: update dependency"
+    auto-merge: true
+    ignore:
+      - dependency-name: "*"
+        versions: ["1.x.x"]
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "2023-12-01T00:00:00Z"
+    open-pull-requests-limit: 5
+    commit-message: "fix: update dependency"
+    auto-merge: true
+    ignore:
+      - dependency-name: "*"
+        versions: ["1.x.x"]
