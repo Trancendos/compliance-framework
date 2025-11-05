@@ -117,8 +117,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: >-
-            chore: update deprecated GitHub Actions to latest versions
+          commit-message: 'chore: update deprecated GitHub Actions to latest versions'
           title: 'chore: Update deprecated GitHub Actions to latest versions'
           body: |
             ## Automated fix for deprecated GitHub Actions
