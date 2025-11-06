@@ -1,0 +1,161 @@
+name: Auto-fix Deprecated Actions
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-fix-deprecated-actions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email \
+            'github-actions[bot]@users.noreply.github.com'
+
+      - name: Scan for deprecated actions
+        id: scan
+        run: |
+          echo "Scanning for deprecated GitHub Actions..."
+
+          # Create a flag to track if changes are needed
+          CHANGES_NEEDED=false
+
+          # Find all workflow files
+          WORKFLOW_FILES=$(find .github/workflows -type f \
+            \( -name "*.yml" -o -name "*.yaml" \))
+
+          if [ -z "$WORKFLOW_FILES" ]; then
+            echo "No workflow files found"
+            echo "changes_needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check for deprecated action versions
+          DEPRECATED_FOUND=""
+
+          while IFS= read -r file; do
+            echo "Checking $file..."
+
+            # Check for actions/cache@v1 or actions/cache@v2
+            if grep -q "actions/cache@v[12]" "$file"; then
+              echo "Found deprecated actions/cache in $file"
+              DEPRECATED_FOUND="${DEPRECATED_FOUND}\n- $file: uses deprecated actions/cache@v1 or v2"
+              CHANGES_NEEDED=true
+            fi
+
+            # Check for actions/setup-node@v1 or v2
+            if grep -q "actions/setup-node@v[12]" "$file"; then
+              echo "Found deprecated actions/setup-node in $file"
+              DEPRECATED_FOUND="${DEPRECATED_FOUND}\n- $file: uses deprecated actions/setup-node@v1 or v2"
+              CHANGES_NEEDED=true
+            fi
+
+            # Check for actions/setup-python@v1 or v2
+            if grep -q "actions/setup-python@v[12]" "$file"; then
+              echo "Found deprecated actions/setup-python in $file"
+              DEPRECATED_FOUND="${DEPRECATED_FOUND}\n- $file: uses deprecated actions/setup-python@v1 or v2"
+              CHANGES_NEEDED=true
+            fi
+          done <<< "$WORKFLOW_FILES"
+
+          echo "changes_needed=$CHANGES_NEEDED" >> "$GITHUB_OUTPUT"
+
+          if [ "$CHANGES_NEEDED" = "true" ]; then
+            echo -e "Deprecated actions found:$DEPRECATED_FOUND"
+            {
+              echo "deprecated_list<<EOF"
+              echo -e "$DEPRECATED_FOUND"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "No deprecated actions found!"
+          fi
+
+      - name: Apply fixes for deprecated actions
+        if: steps.scan.outputs.changes_needed == 'true'
+        run: |
+          echo "Applying automatic fixes..."
+
+          # Find all workflow files
+          WORKFLOW_FILES=$(find .github/workflows -type f \
+            \( -name "*.yml" -o -name "*.yaml" \))
+
+          while IFS= read -r file; do
+            echo "Processing $file..."
+
+            # Replace actions/cache@v1 and v2 with v4
+            sed -i 's|actions/cache@v1|actions/cache@v4|g' "$file"
+            sed -i 's|actions/cache@v2|actions/cache@v4|g' "$file"
+
+            # Replace actions/setup-node@v1 and v2 with v4
+            sed -i 's|actions/setup-node@v1|actions/setup-node@v4|g' "$file"
+            sed -i 's|actions/setup-node@v2|actions/setup-node@v4|g' "$file"
+
+            # Replace actions/setup-python@v1 and v2 with v5
+            sed -i 's|actions/setup-python@v1|actions/setup-python@v5|g' "$file"
+            sed -i 's|actions/setup-python@v2|actions/setup-python@v5|g' "$file"
+          done <<< "$WORKFLOW_FILES"
+
+          echo "Fixes applied!"
+
+      - name: Create Pull Request
+        if: steps.scan.outputs.changes_needed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update deprecated GitHub Actions to latest versions'
+          title: 'chore: Update deprecated GitHub Actions to latest versions'
+          body: |
+            ## Automated fix for deprecated GitHub Actions
+
+            This PR automatically updates deprecated GitHub Actions to their
+            latest versions.
+
+            ### Changes made:
+            ${{ steps.scan.outputs.deprecated_list }}
+
+            ### Updates applied:
+            - `actions/cache@v1` and `v2` → `actions/cache@v4`
+            - `actions/setup-node@v1` and `v2` → `actions/setup-node@v4`
+            - `actions/setup-python@v1` and `v2` → `actions/setup-python@v5`
+
+            ### Why these updates?
+            - Older versions (v1, v2) are deprecated and may stop working
+            - Newer versions include performance improvements and bug fixes
+            - Using latest versions ensures compatibility with GitHub's
+              infrastructure
+
+            ### References:
+            - [actions/cache releases](https://github.com/actions/cache/releases)
+            - [actions/setup-node releases](https://github.com/actions/setup-node/releases)
+            - [actions/setup-python releases](https://github.com/actions/setup-python/releases)
+
+            ---
+            *This PR was automatically created by the
+            auto-fix-deprecated-actions workflow*
+          branch: auto-fix/update-deprecated-actions
+          delete-branch: true
+          labels: |
+            automated
+            dependencies
+            github-actions
+
+      - name: No changes needed
+        if: steps.scan.outputs.changes_needed != 'true'
+        run: |
+          echo "✅ All GitHub Actions are up to date!"
+          echo "No deprecated versions found."
