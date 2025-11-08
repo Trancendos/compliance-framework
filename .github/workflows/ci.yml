@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,40 +15,70 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+      - name: Check for requirements.txt
+        id: check_requirements
+        run: |
+          if [ -f requirements.txt ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Found requirements.txt"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No requirements.txt found"
+          fi
 
       - name: Install dependencies
+        if: steps.check_requirements.outputs.exists == 'true'
         run: |
-          python -m pip install --upgrade pip
-          # Install from requirements.txt if it exists
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            echo "No requirements.txt found, skipping dependency installation"
-          fi
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: Install linting tools
+        run: |
+          pip install flake8
 
       - name: Lint with flake8
         run: |
-          pip install flake8
-          # stop the build if there are Python syntax errors or undefined names
+          # Stop the build if there are Python syntax errors or undefined names
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings
+          
+          # Exit-zero treats all errors as warnings
           flake8 . --count --exit-zero --max-complexity=10 \
             --max-line-length=127 --statistics
+        continue-on-error: false
+
+      - name: Find Python files
+        id: find_files
+        run: |
+          if [ -d "src" ] || [ -d "tests" ] || find . -maxdepth 2 -name "*.py" -type f | grep -q .; then
+            echo "has_python=true" >> $GITHUB_OUTPUT
+            echo "✓ Python files found"
+          else
+            echo "has_python=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No Python source files found"
+          fi
 
       - name: Run compliance scanner
+        if: steps.find_files.outputs.has_python == 'true'
         run: |
-          echo "Would run compliance scanner in production environment"
+          echo "Running compliance validation..."
+          # Add actual compliance scanner commands here when ready
+          echo "✓ Compliance check placeholder complete"
+
+      - name: Upload flake8 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flake8-results
+          path: |
+            flake8-report.txt
+          retention-days: 7
+          if-no-files-found: ignore
